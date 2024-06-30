@@ -3,17 +3,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { WorkerService } from './worker.service';
-import { WorkerProcessor } from './worker.processor';
+import { CodeSaveProcessor } from './code-save.processor';
+import { CodeExecProcessor } from './code-exec.processor';
 import { Job as SqlJob } from './job.entity';
 import { JobSchema } from './job.schema';
-import { typeOrmConfig } from './typeorm.config'; // 导入 TypeORM 配置
-import { mongooseConfig } from './mongoose.config'; // 导入 Mongoose 配置
+import { typeOrmConfig } from './typeorm.config';
+import { mongooseConfig } from './mongoose.config';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot(typeOrmConfig), // 使用 TypeORM 配置
+    TypeOrmModule.forRoot(typeOrmConfig),
     TypeOrmModule.forFeature([SqlJob]),
-    MongooseModule.forRoot(mongooseConfig.uri), // 使用 Mongoose 配置
+    MongooseModule.forRoot(mongooseConfig.uri),
     MongooseModule.forFeature([{ name: 'Job', schema: JobSchema }]),
     BullModule.forRoot({
       redis: {
@@ -22,9 +23,16 @@ import { mongooseConfig } from './mongoose.config'; // 导入 Mongoose 配置
       },
     }),
     BullModule.registerQueue({
-      name: 'jobQueue',
+      name: 'codeSaveQueue',
+    }),
+    BullModule.registerQueue({
+      name: 'codeExecQueue',
     }),
   ],
-  providers: [WorkerService, WorkerProcessor],
+  providers: [WorkerService, CodeSaveProcessor, CodeExecProcessor],
 })
-export class WorkerModule { }
+export class WorkerModule {
+  constructor() {
+    console.log('WorkerModule initialized');
+  }
+}

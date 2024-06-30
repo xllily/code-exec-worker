@@ -4,8 +4,10 @@ import { Repository } from 'typeorm';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PythonShell } from 'python-shell';
-import { Job as SqlJob } from './job.entity'; // TypeORM 的 Job 实体
-import { Job as MongoJob } from './job.interface'; // Mongoose 的 Job 接口
+import { Job as SqlJob } from './job.entity';
+import { Job as MongoJob } from './job.interface';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class WorkerService {
@@ -14,30 +16,47 @@ export class WorkerService {
   constructor(
     @InjectRepository(SqlJob) private jobRepository: Repository<SqlJob>,
     @InjectModel('Job') private mongoJobModel: Model<MongoJob>,
-  ) { }
+    @InjectQueue('codeExecQueue') private codeExecQueue: Queue,
+  ) {
+    this.logger.log('WorkerService initialized');
+  }
+
+  log(message: string) {
+    this.logger.log(message);
+  }
+
+  async updateJobCodePath(jobId: string, filePath: string) {
+    this.log(`Updating job code path for job ID: ${jobId}`);
+    const job = await this.jobRepository.findOne({ where: { id: jobId } });
+    if (job) {
+      job.codeFilePath = filePath;
+      await this.jobRepository.save(job);
+    }
+  }
+
+  async addJobToExecQueue(jobId: string) {
+    this.log(`Adding job ID: ${jobId} to execution queue`);
+    await this.codeExecQueue.add('executeCode', { jobId });
+  }
 
   async processJob(jobId: string) {
-    this.logger.log(`Processing job with ID: ${jobId}`);
+    this.log(`Processing job with ID: ${jobId}`);
 
-    // 从 SQLite 读取任务
     const job = await this.jobRepository.findOne({ where: { id: jobId } });
-
     if (!job) {
       this.logger.error(`Job not found: ${jobId}`);
       throw new Error('Job not found');
     }
 
+    const filePath = job.codeFilePath;
     try {
-      const results = await PythonShell.runString(job.code, {
-        mode: 'text',
-      });
+      const results = await PythonShell.run(filePath, null);
 
-      this.logger.log(`Python script output: ${results}`);
+      this.log(`Python script output: ${results}`);
 
-      // 在 MongoDB 中保存结果
       const mongoJob = new this.mongoJobModel({
         _id: job.id,
-        code: job.code,
+        code: job.codeFilePath,
         result: results.join('\n'),
         status: 'completed',
       });
@@ -45,10 +64,9 @@ export class WorkerService {
     } catch (err) {
       this.logger.error(`Python script error: ${err.message}`);
 
-      // 在 MongoDB 中保存错误信息
       const mongoJob = new this.mongoJobModel({
         _id: job.id,
-        code: job.code,
+        code: job.codeFilePath,
         result: err.message,
         status: 'failed',
       });

@@ -1,22 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, BeforeInsert } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Job {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column()
-    code: string;
-
-    @Column({ default: 'pending' })
-    status: string;
-
     @Column({ nullable: true })
-    result: string;
+    codeFilePath: string;
 
-    @BeforeInsert()
-    generateId() {
-        this.id = uuidv4();
-    }
+    @Column()
+    status: string;
 }
