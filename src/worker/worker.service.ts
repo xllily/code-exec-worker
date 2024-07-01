@@ -55,7 +55,7 @@ export class WorkerService {
       }
 
       const results = await PythonShell.run(filePath, options);
-      this.logger.log(`Execution results: ${results}`);
+      // this.logger.log(`Execution results: ${results}`);
 
       const job = await this.jobModel.findById(jobId).exec();
       if (!job) {
