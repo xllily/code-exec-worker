@@ -2,16 +2,13 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WorkerModule } from './worker/worker.module';
+import { mongooseConfig } from './mongoose.config';
+import { bullConfig } from './bull.config';
 
 @Module({
   imports: [
-    BullModule.forRoot({
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-      },
-    }),
-    MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost/code-exec'),
+    BullModule.forRoot(bullConfig),
+    MongooseModule.forRoot(mongooseConfig.uri),
     BullModule.registerQueue({
       name: 'code-save',
     }),
